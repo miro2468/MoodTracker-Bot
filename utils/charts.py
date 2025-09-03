@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from io import BytesIO
 
 from database.models import MoodEntry
-from config import config
+from config import config, logger
 
 # Настройка стиля графиков
 plt.style.use('seaborn-v0_8')

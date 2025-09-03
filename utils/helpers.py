@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, date, timedelta
 from typing import Optional, Tuple
-from config import config
+from config import config, logger
 
 def format_mood_entry(entry, tags: list = None) -> str:
     """Форматировать запись настроения для отображения"""
@@ -18,7 +18,8 @@ def format_mood_entry(entry, tags: list = None) -> str:
     if entry.diary_text:
         message += f"\n📝 Заметка:\n{entry.diary_text}\n"
 
-    message += f"\n✅ Запись сохранена в {entry.created_at.strftime('%H:%M')}"
+    time_str = entry.created_at.strftime('%H:%M') if entry.created_at else "неизвестное время"
+    message += f"\n✅ Запись сохранена в {time_str}"
 
     return message
 

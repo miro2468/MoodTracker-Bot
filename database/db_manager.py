@@ -1,13 +1,10 @@
 import sqlite3
-import logging
 from datetime import datetime, date, time
 from typing import List, Optional, Dict, Any
 from contextlib import contextmanager
 
 from .models import User, MoodEntry, Tag, MoodTag, UserSettings, MoodStats, MoodPattern
-from config import config
-
-logger = logging.getLogger(__name__)
+from config import config, logger
 
 class DatabaseManager:
     """Менеджер базы данных для MoodTracker Bot"""
@@ -188,7 +185,7 @@ class DatabaseManager:
             return mood_id
 
     def get_mood_entries(self, user_id: int, start_date: date = None,
-                        end_date: date = None) -> List[MoodEntry]:
+                        end_date: date = None, limit: int = None) -> List[MoodEntry]:
         """Получить записи настроения за период"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -208,6 +205,10 @@ class DatabaseManager:
                 params.append(end_date)
 
             query += ' ORDER BY entry_date DESC, created_at DESC'
+
+            if limit:
+                query += ' LIMIT ?'
+                params.append(limit)
 
             cursor.execute(query, params)
             rows = cursor.fetchall()

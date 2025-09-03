@@ -1,4 +1,3 @@
-import logging
 from datetime import time
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
@@ -14,9 +13,9 @@ from keyboards.inline import (
     get_confirmation_keyboard
 )
 from keyboards.reply import get_main_reply_keyboard
+from config import logger
 from utils.helpers import parse_time_string
-
-logger = logging.getLogger(__name__)
+from aiogram.types import InputFile
 
 router = Router()
 
@@ -258,12 +257,17 @@ async def callback_settings_export(callback: CallbackQuery):
         from io import BytesIO
         csv_bytes = BytesIO(csv_content.encode('utf-8'))
 
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass  # Игнорируем ошибку если сообщение уже удалено
+
+        # Создаем InputFile из BytesIO
+        csv_file = InputFile(csv_bytes, filename=f"mood_tracker_export_{user_id}.csv")
 
         await callback.bot.send_document(
             chat_id=callback.message.chat.id,
-            document=csv_bytes,
-            filename=f"mood_tracker_export_{user_id}.csv",
+            document=csv_file,
             caption="📤 Экспорт данных в формате CSV\n\n" +
                    f"Всего записей: {export_data['total_entries']}\n" +
                    f"Дата экспорта: {export_data['export_date'][:10]}",

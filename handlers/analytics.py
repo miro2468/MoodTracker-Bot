@@ -1,4 +1,3 @@
-import logging
 from datetime import date, timedelta
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
@@ -11,14 +10,14 @@ from keyboards.inline import (
     get_main_menu_keyboard
 )
 from keyboards.reply import get_main_reply_keyboard
+from config import logger
 from utils.charts import chart_generator
 from utils.helpers import (
     get_date_range,
     format_stats_message,
     format_patterns_message
 )
-
-logger = logging.getLogger(__name__)
+from aiogram.types import InputFile
 
 router = Router()
 
@@ -122,11 +121,17 @@ async def callback_analytics_period(callback: CallbackQuery):
         stats_message = format_stats_message(stats)
 
         # Отправляем график
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass  # Игнорируем ошибку если сообщение уже удалено
+
+        # Создаем InputFile из BytesIO
+        chart_file = InputFile(chart_buffer, filename=f"mood_chart_{period_name}.png")
 
         await callback.bot.send_photo(
             chat_id=callback.message.chat.id,
-            photo=chart_buffer,
+            photo=chart_file,
             caption=f"📈 График настроения за {period_name}\n\n{stats_message}",
             reply_markup=get_back_keyboard("analytics_menu")
         )
@@ -183,11 +188,17 @@ async def callback_analytics_days(callback: CallbackQuery):
             else:
                 analysis_text += f"{weekday_names[weekday]}: Нет данных\n"
 
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass  # Игнорируем ошибку если сообщение уже удалено
+
+        # Создаем InputFile из BytesIO
+        chart_file = InputFile(chart_buffer, filename="weekday_stats.png")
 
         await callback.bot.send_photo(
             chat_id=callback.message.chat.id,
-            photo=chart_buffer,
+            photo=chart_file,
             caption=analysis_text,
             reply_markup=get_back_keyboard("analytics_menu")
         )
@@ -252,11 +263,17 @@ async def callback_analytics_tags(callback: CallbackQuery):
             percentage = (count / total_entries) * 100 if total_entries > 0 else 0
             analysis_text += f"#{tag_name}: {count} раз ({percentage:.1f}%)\n"
 
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass  # Игнорируем ошибку если сообщение уже удалено
+
+        # Создаем InputFile из BytesIO
+        chart_file = InputFile(chart_buffer, filename="tags_pie_chart.png")
 
         await callback.bot.send_photo(
             chat_id=callback.message.chat.id,
-            photo=chart_buffer,
+            photo=chart_file,
             caption=analysis_text,
             reply_markup=get_back_keyboard("analytics_menu")
         )
@@ -291,11 +308,17 @@ async def callback_analytics_patterns(callback: CallbackQuery):
         # Форматируем паттерны
         patterns_message = format_patterns_message(patterns)
 
-        await callback.message.delete()
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass  # Игнорируем ошибку если сообщение уже удалено
+
+        # Создаем InputFile из BytesIO
+        chart_file = InputFile(chart_buffer, filename="mood_patterns.png")
 
         await callback.bot.send_photo(
             chat_id=callback.message.chat.id,
-            photo=chart_buffer,
+            photo=chart_file,
             caption=patterns_message,
             reply_markup=get_back_keyboard("analytics_menu")
         )
@@ -316,7 +339,17 @@ async def callback_analytics_menu(callback: CallbackQuery):
         )
         await callback.answer()
     except Exception as e:
-        logger.error(f"Ошибка при возврате в меню аналитики: {e}")
+        # Если сообщение нельзя отредактировать, отправляем новое
+        logger.warning(f"Не удалось отредактировать сообщение, отправляем новое: {e}")
+        try:
+            await callback.bot.send_message(
+                chat_id=callback.message.chat.id,
+                text="📈 Аналитика настроения\n\nВыберите тип анализа:",
+                reply_markup=get_analytics_keyboard()
+            )
+        except Exception as e2:
+            logger.error(f"Не удалось отправить новое сообщение: {e2}")
+        await callback.answer()
 
 @router.callback_query(F.data == "back_to_main")
 async def callback_back_to_main(callback: CallbackQuery):

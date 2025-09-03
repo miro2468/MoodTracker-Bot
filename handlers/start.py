@@ -1,4 +1,3 @@
-import logging
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
@@ -6,9 +5,8 @@ from aiogram.filters import Command
 from database.db_manager import db_manager
 from keyboards.inline import get_main_menu_keyboard
 from keyboards.reply import get_main_reply_keyboard
-from config import config
-
-logger = logging.getLogger(__name__)
+from config import config, logger
+from messages import messages
 
 router = Router()
 
@@ -31,9 +29,9 @@ async def cmd_start(message: Message):
 
         # Приветственное сообщение
         welcome_text = f"""
-🌟 Добро пожаловать в MoodTracker Bot, {first_name or 'друг'}!
+🌟 <b>Добро пожаловать в MoodTracker Bot</b>, {first_name or 'друг'}!
 
-{config.WELCOME_MESSAGE}
+{messages.WELCOME_MESSAGE}
 """
 
         # Отправляем приветствие с клавиатурой
@@ -44,7 +42,7 @@ async def cmd_start(message: Message):
 
         # Отправляем основное меню
         await message.answer(
-            "🏠 Выберите действие:",
+            messages.MENU_MAIN,
             reply_markup=get_main_menu_keyboard()
         )
 
@@ -60,12 +58,12 @@ async def cmd_help(message: Message):
     """Обработчик команды /help"""
     try:
         await message.answer(
-            config.HELP_MESSAGE,
+            messages.HELP_COMMAND,
             reply_markup=get_main_reply_keyboard()
         )
     except Exception as e:
         logger.error(f"Ошибка в команде /help для пользователя {message.from_user.id}: {e}")
-        await message.answer("❌ Произошла ошибка при получении справки.")
+        await message.answer(messages.ERROR_SERVICE_UNAVAILABLE)
 
 @router.message(F.text == "ℹ️ Помощь")
 async def btn_help(message: Message):
@@ -77,12 +75,12 @@ async def btn_main_menu(message: Message):
     """Обработчик кнопки Главное меню"""
     try:
         await message.answer(
-            "🏠 Выберите действие:",
+            messages.MENU_MAIN,
             reply_markup=get_main_menu_keyboard()
         )
     except Exception as e:
         logger.error(f"Ошибка при показе главного меню для пользователя {message.from_user.id}: {e}")
-        await message.answer("❌ Произошла ошибка.")
+        await message.answer(messages.ERROR_SERVICE_UNAVAILABLE)
 
 @router.message(Command("privacy"))
 async def cmd_privacy(message: Message):

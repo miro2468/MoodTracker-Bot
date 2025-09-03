@@ -1,13 +1,10 @@
-import logging
 from datetime import datetime, time
 from typing import Dict, List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database.db_manager import db_manager
-from config import config
-
-logger = logging.getLogger(__name__)
+from config import config, logger
 
 class ReminderScheduler:
     """Планировщик напоминаний о записи настроения"""

@@ -1,4 +1,3 @@
-import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -13,8 +12,7 @@ from keyboards.inline import (
     get_confirmation_keyboard
 )
 from keyboards.reply import get_main_reply_keyboard
-
-logger = logging.getLogger(__name__)
+from config import logger
 
 router = Router()
 

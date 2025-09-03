@@ -1,4 +1,3 @@
-import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
@@ -15,10 +14,8 @@ from keyboards.inline import (
     get_cancel_keyboard
 )
 from keyboards.reply import get_mood_quick_reply, get_main_reply_keyboard
-from config import config
+from config import config, logger
 from utils.helpers import format_mood_entry
-
-logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -54,6 +51,19 @@ async def cmd_mood(message: Message, state: FSMContext):
     except Exception as e:
         logger.error(f"Ошибка в команде /mood для пользователя {message.from_user.id}: {e}")
         await message.answer("❌ Произошла ошибка.")
+
+@router.callback_query(F.data == "mood_record")
+async def callback_mood_record(callback: CallbackQuery, state: FSMContext):
+    """Обработчик callback кнопки записи настроения"""
+    await callback.answer()
+    # Создаем message-like объект для совместимости с cmd_mood
+    class MockMessage:
+        def __init__(self, callback):
+            self.from_user = callback.from_user
+            self.chat = callback.message.chat
+
+    mock_message = MockMessage(callback)
+    await cmd_mood(mock_message, state)
 
 @router.message(F.text == "📊 Записать настроение")
 async def btn_mood_record(message: Message, state: FSMContext):
@@ -107,10 +117,11 @@ async def callback_mood_select(callback: CallbackQuery, state: FSMContext):
         else:
             # Показываем выбор тегов
             await state.set_state(MoodStates.waiting_for_tags_selection)
+            await state.update_data(current_category=None, selected_tags=[])
             await callback.message.edit_text(
                 f"Вы выбрали: {config.MOOD_EMOJIS[mood_score]} {config.MOOD_NAMES[mood_score]}\n\n"
                 "🏷️ Выберите теги, которые описывают ваше состояние:",
-                reply_markup=get_tags_selection_keyboard(tags)
+                reply_markup=get_tags_selection_keyboard(tags, [], None)
             )
 
         await callback.answer()
@@ -158,15 +169,84 @@ async def process_mood_quick_reply(message: Message, state: FSMContext):
             )
         else:
             await state.set_state(MoodStates.waiting_for_tags_selection)
+            await state.update_data(current_category=None, selected_tags=[])
             await message.answer(
                 f"Вы выбрали: {config.MOOD_EMOJIS[mood_score]} {config.MOOD_NAMES[mood_score]}\n\n"
                 "🏷️ Выберите теги, которые описывают ваше состояние:",
-                reply_markup=get_tags_selection_keyboard(tags)
+                reply_markup=get_tags_selection_keyboard(tags, [], None)
             )
 
     except Exception as e:
         logger.error(f"Ошибка при обработке быстрого ответа: {e}")
         await state.clear()
+
+@router.callback_query(F.data.startswith("category_"))
+async def callback_category_select(callback: CallbackQuery, state: FSMContext):
+    """Обработчик выбора категории"""
+    try:
+        category_id = callback.data.split("_", 1)[1]
+        # Преобразуем обратно из формата для callback_data
+        category_name = category_id.replace("_", " ").title()
+
+        # Получаем данные из состояния
+        data = await state.get_data()
+        user_id = callback.from_user.id
+        tags = db_manager.get_all_tags(user_id)
+        mood_score = data.get('mood_score')
+        selected_tags = data.get('selected_tags', [])
+
+        # Группируем теги по категориям
+        categories = {}
+        for tag in tags:
+            cat = tag.category or "Другие"
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(tag)
+
+        # Находим правильное название категории
+        actual_category = None
+        for cat_name in categories.keys():
+            if cat_name.lower().replace(" ", "_") == category_id:
+                actual_category = cat_name
+                break
+
+        if actual_category:
+            await state.update_data(current_category=actual_category)
+            mood_text = f"Вы выбрали: {config.MOOD_EMOJIS[mood_score]} {config.MOOD_NAMES[mood_score]}\n\n" if mood_score else ""
+
+            await callback.message.edit_text(
+                mood_text + f"🏷️ Выберите теги из категории '{actual_category}':",
+                reply_markup=get_tags_selection_keyboard(tags, selected_tags, actual_category)
+            )
+
+        await callback.answer()
+
+    except Exception as e:
+        logger.error(f"Ошибка при выборе категории: {e}")
+
+@router.callback_query(F.data == "back_to_categories")
+async def callback_back_to_categories(callback: CallbackQuery, state: FSMContext):
+    """Обработчик возврата к списку категорий"""
+    try:
+        data = await state.get_data()
+        user_id = callback.from_user.id
+        tags = db_manager.get_all_tags(user_id)
+        mood_score = data.get('mood_score')
+        selected_tags = data.get('selected_tags', [])
+
+        await state.update_data(current_category=None)
+
+        mood_text = f"Вы выбрали: {config.MOOD_EMOJIS[mood_score]} {config.MOOD_NAMES[mood_score]}\n\n" if mood_score else ""
+
+        await callback.message.edit_text(
+            mood_text + "🏷️ Выберите теги, которые описывают ваше состояние:",
+            reply_markup=get_tags_selection_keyboard(tags, selected_tags, None)
+        )
+
+        await callback.answer()
+
+    except Exception as e:
+        logger.error(f"Ошибка при возврате к категориям: {e}")
 
 @router.callback_query(F.data.startswith("tag_toggle_"))
 async def callback_tag_toggle(callback: CallbackQuery, state: FSMContext):
@@ -174,9 +254,10 @@ async def callback_tag_toggle(callback: CallbackQuery, state: FSMContext):
     try:
         tag_id = int(callback.data.split("_")[2])
 
-        # Получаем текущие выбранные теги
+        # Получаем текущие данные
         data = await state.get_data()
         selected_tags = data.get('selected_tags', [])
+        current_category = data.get('current_category')
 
         if tag_id in selected_tags:
             selected_tags.remove(tag_id)
@@ -188,22 +269,33 @@ async def callback_tag_toggle(callback: CallbackQuery, state: FSMContext):
         # Обновляем клавиатуру
         user_id = callback.from_user.id
         tags = db_manager.get_all_tags(user_id)
-
         mood_score = data.get('mood_score')
+
         mood_text = f"Вы выбрали: {config.MOOD_EMOJIS[mood_score]} {config.MOOD_NAMES[mood_score]}\n\n" if mood_score else ""
 
-        selected_count = len(selected_tags)
-        tags_text = f"🏷️ Выберите теги ({selected_count} выбрано):" if selected_count > 0 else "🏷️ Выберите теги:"
+        if current_category:
+            await callback.message.edit_text(
+                mood_text + f"🏷️ Выберите теги из категории '{current_category}':",
+                reply_markup=get_tags_selection_keyboard(tags, selected_tags, current_category)
+            )
+        else:
+            selected_count = len(selected_tags)
+            tags_text = f"🏷️ Выберите теги ({selected_count} выбрано):" if selected_count > 0 else "🏷️ Выберите теги:"
 
-        await callback.message.edit_text(
-            mood_text + tags_text,
-            reply_markup=get_tags_selection_keyboard(tags, selected_tags)
-        )
+            await callback.message.edit_text(
+                mood_text + tags_text,
+                reply_markup=get_tags_selection_keyboard(tags, selected_tags, current_category)
+            )
 
         await callback.answer()
 
     except Exception as e:
         logger.error(f"Ошибка при выборе тега: {e}")
+
+@router.callback_query(F.data == "noop")
+async def callback_noop(callback: CallbackQuery):
+    """Обработчик заголовков (ничего не делает)"""
+    await callback.answer()
 
 @router.callback_query(F.data == "tags_done")
 async def callback_tags_done(callback: CallbackQuery, state: FSMContext):
@@ -243,7 +335,7 @@ async def callback_tags_reset(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             mood_text + "🏷️ Выберите теги:",
-            reply_markup=get_tags_selection_keyboard(tags, [])
+            reply_markup=get_tags_selection_keyboard(tags, [], None)
         )
 
         await callback.answer("Выбор тегов сброшен")

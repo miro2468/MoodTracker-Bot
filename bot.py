@@ -1,10 +1,9 @@
 import asyncio
-import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from config import config
+from config import config, logger
 from database.db_manager import db_manager
 from utils.scheduler import reminder_scheduler
 
@@ -16,67 +15,75 @@ from handlers.analytics import router as analytics_router
 from handlers.tags import router as tags_router
 from handlers.settings import router as settings_router
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('bot.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger(__name__)
-
 async def main():
     """Главная функция запуска бота"""
     try:
+        logger.info("🚀 Начинаем инициализацию MoodTracker Bot...")
+
         # Проверяем токен бота
         if not config.BOT_TOKEN:
-            logger.error("BOT_TOKEN не найден в переменных окружения")
+            logger.error("❌ BOT_TOKEN не найден в переменных окружения")
             print("❌ Ошибка: BOT_TOKEN не найден!")
             print("Создайте файл .env и добавьте BOT_TOKEN=ваш_токен_бота")
+            print("Получить токен можно у @BotFather в Telegram")
             return
 
+        logger.info("✅ BOT_TOKEN найден и загружен")
+
         # Инициализация бота
+        logger.info("🤖 Инициализация Telegram бота...")
         bot = Bot(
             token=config.BOT_TOKEN,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
+        logger.info("✅ Бот инициализирован успешно")
 
         # Инициализация диспетчера
+        logger.info("📋 Настройка диспетчера команд...")
         dp = Dispatcher()
 
         # Регистрация роутеров
+        logger.info("🔗 Регистрация хендлеров...")
         dp.include_router(start_router)
         dp.include_router(mood_router)
         dp.include_router(diary_router)
         dp.include_router(analytics_router)
         dp.include_router(tags_router)
         dp.include_router(settings_router)
+        logger.info("✅ Все хендлеры зарегистрированы")
 
         # Инициализация планировщика напоминаний
+        logger.info("⏰ Запуск планировщика напоминаний...")
         await reminder_scheduler.start_scheduler()
+        logger.info("✅ Планировщик напоминаний запущен")
 
-        logger.info("Бот MoodTracker запущен успешно")
+        logger.info("🎉 MoodTracker Bot полностью запущен и готов к работе!")
         print("🚀 MoodTracker Bot запущен!")
         print("📊 Бот готов к работе")
+        print("📝 Логи сохраняются в файл bot.log")
         print("Нажмите Ctrl+C для остановки")
 
         # Запуск бота
+        logger.info("🔄 Запуск polling...")
         await dp.start_polling(bot)
 
     except KeyboardInterrupt:
-        logger.info("Бот остановлен пользователем")
+        logger.info("🛑 Бот остановлен пользователем (Ctrl+C)")
         print("\n🛑 Бот остановлен")
 
     except Exception as e:
-        logger.error(f"Критическая ошибка при запуске бота: {e}")
+        logger.error(f"💥 Критическая ошибка при запуске бота: {e}", exc_info=True)
         print(f"❌ Критическая ошибка: {e}")
+        print("Подробная информация записана в лог-файл")
 
     finally:
         # Остановка планировщика
-        await reminder_scheduler.stop_scheduler()
+        logger.info("🔄 Остановка планировщика напоминаний...")
+        try:
+            await reminder_scheduler.stop_scheduler()
+            logger.info("✅ Планировщик остановлен")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при остановке планировщика: {e}")
 
 async def on_startup():
     """Действия при запуске бота"""

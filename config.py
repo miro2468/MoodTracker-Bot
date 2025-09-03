@@ -1,7 +1,35 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Настройка логирования
+def setup_logging():
+    """Настройка системы логирования"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.FileHandler('bot.log', encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+
+    # Настройка уровней логирования для разных модулей
+    logging.getLogger('aiogram').setLevel(logging.WARNING)
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+    # Создание логгера для бота
+    logger = logging.getLogger('mood_tracker')
+    logger.setLevel(logging.INFO)
+
+    return logger
+
+# Глобальный логгер
+logger = setup_logging()
 
 class Config:
     """Конфигурация бота"""

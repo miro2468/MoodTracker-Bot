@@ -30,8 +30,8 @@ def get_mood_rating_keyboard() -> InlineKeyboardMarkup:
     builder.adjust(1)
     return builder.as_markup()
 
-def get_tags_selection_keyboard(tags: list, selected_tags: list = None) -> InlineKeyboardMarkup:
-    """Клавиатура выбора тегов"""
+def get_tags_selection_keyboard(tags: list, selected_tags: list = None, current_category: str = None) -> InlineKeyboardMarkup:
+    """Красивая клавиатура выбора тегов с категориями"""
     if selected_tags is None:
         selected_tags = []
 
@@ -45,29 +45,52 @@ def get_tags_selection_keyboard(tags: list, selected_tags: list = None) -> Inlin
             categories[category] = []
         categories[category].append(tag)
 
-    # Создаем кнопки по категориям
-    for category, category_tags in categories.items():
-        # Добавляем заголовок категории
-        builder.button(
-            text=f"📂 {category}",
-            callback_data=f"category_{category.lower().replace(' ', '_')}"
-        )
+    selected_count = len(selected_tags)
+    header_text = f"🏷️ Выбор тегов ({selected_count} выбрано)"
 
-        # Добавляем теги категории
-        for tag in category_tags:
+    # Если категория не выбрана, показываем список категорий
+    if not current_category or current_category not in categories:
+        builder.button(text="📂 ВЫБЕРИТЕ КАТЕГОРИЮ", callback_data="noop")
+
+        for category_name in categories.keys():
+            tag_count = len(categories[category_name])
+            selected_in_category = len([tag for tag in categories[category_name] if tag.id in selected_tags])
+            status = f" ({selected_in_category}/{tag_count})" if selected_in_category > 0 else ""
+
+            builder.button(
+                text=f"📁 {category_name}{status}",
+                callback_data=f"category_{category_name.lower().replace(' ', '_')}"
+            )
+
+        builder.button(text="➕ Создать тег", callback_data="tag_create")
+        builder.button(text="✅ Готово", callback_data="tags_done")
+        builder.adjust(1)
+
+    else:
+        # Показываем теги выбранной категории
+        category_tags = categories[current_category]
+        selected_in_category = len([tag for tag in category_tags if tag.id in selected_tags])
+
+        builder.button(text=f"📂 {current_category} ({selected_in_category}/{len(category_tags)})", callback_data="noop")
+
+        # Добавляем теги категории (максимум 8 тегов за раз)
+        for tag in category_tags[:8]:
             is_selected = tag.id in selected_tags
-            status = "✅" if is_selected else "☐"
+            status = "🟢" if is_selected else "⚪"
             builder.button(
                 text=f"{status} {tag.name}",
                 callback_data=f"tag_toggle_{tag.id}"
             )
 
-    # Кнопки управления
-    builder.button(text="➕ Создать тег", callback_data="tag_create")
-    builder.button(text="✅ Готово", callback_data="tags_done")
-    builder.button(text="🔄 Сбросить", callback_data="tags_reset")
+        # Если тегов больше 8, добавляем пагинацию (упрощенная версия)
+        if len(category_tags) > 8:
+            builder.button(text="📄 Еще теги...", callback_data="tag_page_2")
 
-    builder.adjust(1)
+        # Кнопки управления
+        builder.button(text="⬅️ Назад к категориям", callback_data="back_to_categories")
+        builder.button(text="✅ Готово", callback_data="tags_done")
+        builder.adjust(2)
+
     return builder.as_markup()
 
 def get_diary_actions_keyboard() -> InlineKeyboardMarkup:

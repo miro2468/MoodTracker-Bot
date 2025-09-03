@@ -1,4 +1,3 @@
-import logging
 from datetime import date, timedelta
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
@@ -7,15 +6,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from database.db_manager import db_manager
+from database.models import MoodEntry
 from keyboards.inline import (
     get_diary_actions_keyboard,
     get_back_keyboard,
     get_main_menu_keyboard
 )
 from keyboards.reply import get_main_reply_keyboard
+from config import logger
 from utils.helpers import format_mood_entry
-
-logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -293,7 +292,7 @@ async def process_new_diary_entry(message: Message, state: FSMContext):
             )
         else:
             # Создаем новую запись только с текстом дневника
-            entry = db_manager.MoodEntry(
+            entry = MoodEntry(
                 user_id=user_id,
                 mood_score=3,  # Нейтральное настроение по умолчанию
                 diary_text=diary_text
