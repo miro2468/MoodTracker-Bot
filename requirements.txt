@@ -1,0 +1,10 @@
+aiogram==3.0.0
+sqlite3
+matplotlib==3.7.1
+seaborn==0.12.2
+pandas==2.0.3
+numpy==1.24.3
+python-dotenv==1.0.0
+apscheduler==3.10.4
+Pillow==10.0.0
+reportlab==4.0.4
