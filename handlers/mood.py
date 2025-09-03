@@ -55,15 +55,23 @@ async def cmd_mood(message: Message, state: FSMContext):
 @router.callback_query(F.data == "mood_record")
 async def callback_mood_record(callback: CallbackQuery, state: FSMContext):
     """Обработчик callback кнопки записи настроения"""
-    await callback.answer()
-    # Создаем message-like объект для совместимости с cmd_mood
-    class MockMessage:
-        def __init__(self, callback):
-            self.from_user = callback.from_user
-            self.chat = callback.message.chat
+    try:
+        logger.info(f"Callback mood_record received from user {callback.from_user.id}")
+        await callback.answer()
 
-    mock_message = MockMessage(callback)
-    await cmd_mood(mock_message, state)
+        # Создаем message-like объект для совместимости с cmd_mood
+        class MockMessage:
+            def __init__(self, callback):
+                self.from_user = callback.from_user
+                self.chat = callback.message.chat
+
+        mock_message = MockMessage(callback)
+        await cmd_mood(mock_message, state)
+        logger.info(f"Successfully processed mood_record callback for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in mood_record callback: {e}")
+        await callback.answer("Произошла ошибка при обработке запроса")
 
 @router.message(F.text == "📊 Записать настроение")
 async def btn_mood_record(message: Message, state: FSMContext):

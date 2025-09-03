@@ -1,9 +1,10 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 
 from database.db_manager import db_manager
-from keyboards.inline import get_main_menu_keyboard
+from keyboards.inline import get_main_menu_keyboard, get_analytics_keyboard
 from keyboards.reply import get_main_reply_keyboard
 from config import config, logger
 from messages import messages
@@ -144,3 +145,56 @@ async def cmd_stats(message: Message):
     except Exception as e:
         logger.error(f"Ошибка в команде /stats для пользователя {message.from_user.id}: {e}")
         await message.answer("❌ Произошла ошибка при получении статистики.")
+
+@router.callback_query(F.data == "mood_record")
+async def callback_mood_record_from_main(callback: CallbackQuery, state: FSMContext):
+    """Обработчик callback кнопки записи настроения из главного меню"""
+    try:
+        logger.info(f"Callback mood_record received from main menu by user {callback.from_user.id}")
+        await callback.answer()
+
+        # Создаем message-like объект для совместимости
+        class MockMessage:
+            def __init__(self, callback):
+                self.from_user = callback.from_user
+                self.chat = callback.message.chat
+
+        # Импортируем функцию из mood.py
+        from handlers.mood import cmd_mood
+        mock_message = MockMessage(callback)
+        await cmd_mood(mock_message, state)
+        logger.info(f"Successfully processed mood_record from main menu for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in mood_record from main menu callback: {e}")
+        await callback.answer("Произошла ошибка при обработке запроса")
+
+@router.callback_query(F.data == "analytics_menu")
+async def callback_analytics_menu(callback: CallbackQuery):
+    """Обработчик callback кнопки Аналитика"""
+    try:
+        logger.info(f"Callback analytics_menu received from user {callback.from_user.id}")
+        await callback.answer()
+
+        # Проверяем, есть ли записи для анализа
+        user_id = callback.from_user.id
+        entries = db_manager.get_mood_entries(user_id, limit=1)
+
+        if not entries:
+            await callback.bot.send_message(
+                chat_id=callback.message.chat.id,
+                text="📊 У вас пока нет данных для анализа.\n\nНачните с создания записей настроения!",
+                reply_markup=get_main_menu_keyboard()
+            )
+            return
+
+        await callback.bot.send_message(
+            chat_id=callback.message.chat.id,
+            text="📈 Аналитика настроения\n\nВыберите тип анализа:",
+            reply_markup=get_analytics_keyboard()
+        )
+        logger.info(f"Successfully showed analytics menu for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in analytics_menu callback: {e}")
+        await callback.answer("Произошла ошибка при открытии аналитики")
