@@ -9,6 +9,11 @@ from keyboards.reply import get_main_reply_keyboard
 from config import config, logger
 from messages import messages
 
+# Импортируем функции для меню из других файлов
+from handlers.diary import show_diary_menu
+from handlers.tags import show_tags_menu
+from handlers.settings import show_settings_menu
+
 router = Router()
 
 @router.message(Command("start"))
@@ -155,9 +160,26 @@ async def callback_mood_record_from_main(callback: CallbackQuery, state: FSMCont
 
         # Создаем message-like объект для совместимости
         class MockMessage:
+            """Mock message object для совместимости между callback и message handlers"""
             def __init__(self, callback):
                 self.from_user = callback.from_user
                 self.chat = callback.message.chat
+                self.bot = callback.bot
+
+            async def answer(self, text, reply_markup=None, parse_mode=None, **kwargs):
+                """Mock answer method для отправки сообщений"""
+                try:
+                    await self.bot.send_message(
+                        chat_id=self.chat.id,
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=parse_mode,
+                        **kwargs
+                    )
+                    logger.debug(f"MockMessage answer sent to user {self.from_user.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send MockMessage answer: {e}")
+                    raise
 
         # Импортируем функцию из mood.py
         from handlers.mood import cmd_mood
@@ -198,3 +220,96 @@ async def callback_analytics_menu(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in analytics_menu callback: {e}")
         await callback.answer("Произошла ошибка при открытии аналитики")
+
+@router.callback_query(F.data == "diary_menu")
+async def callback_diary_menu(callback: CallbackQuery):
+    """Обработчик callback кнопки Дневник"""
+    try:
+        logger.info(f"Callback diary_menu received from user {callback.from_user.id}")
+        await callback.answer()
+
+        # Создаем MockMessage для совместимости с функцией show_diary_menu
+        class MockMessage:
+            def __init__(self, callback):
+                self.from_user = callback.from_user
+                self.chat = callback.message.chat
+                self.bot = callback.bot
+
+            async def answer(self, text, reply_markup=None, parse_mode=None, **kwargs):
+                await self.bot.send_message(
+                    chat_id=self.chat.id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                    **kwargs
+                )
+
+        mock_message = MockMessage(callback)
+        await show_diary_menu(mock_message)
+        logger.info(f"Successfully showed diary menu for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in diary_menu callback: {e}")
+        await callback.answer("Произошла ошибка при открытии дневника")
+
+@router.callback_query(F.data == "tags_menu")
+async def callback_tags_menu(callback: CallbackQuery):
+    """Обработчик callback кнопки Мои теги"""
+    try:
+        logger.info(f"Callback tags_menu received from user {callback.from_user.id}")
+        await callback.answer()
+
+        # Создаем MockMessage для совместимости с функцией show_tags_menu
+        class MockMessage:
+            def __init__(self, callback):
+                self.from_user = callback.from_user
+                self.chat = callback.message.chat
+                self.bot = callback.bot
+
+            async def answer(self, text, reply_markup=None, parse_mode=None, **kwargs):
+                await self.bot.send_message(
+                    chat_id=self.chat.id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                    **kwargs
+                )
+
+        mock_message = MockMessage(callback)
+        await show_tags_menu(mock_message)
+        logger.info(f"Successfully showed tags menu for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in tags_menu callback: {e}")
+        await callback.answer("Произошла ошибка при открытии тегов")
+
+@router.callback_query(F.data == "settings_menu")
+async def callback_settings_menu(callback: CallbackQuery):
+    """Обработчик callback кнопки Настройки"""
+    try:
+        logger.info(f"Callback settings_menu received from user {callback.from_user.id}")
+        await callback.answer()
+
+        # Создаем MockMessage для совместимости с функцией show_settings_menu
+        class MockMessage:
+            def __init__(self, callback):
+                self.from_user = callback.from_user
+                self.chat = callback.message.chat
+                self.bot = callback.bot
+
+            async def answer(self, text, reply_markup=None, parse_mode=None, **kwargs):
+                await self.bot.send_message(
+                    chat_id=self.chat.id,
+                    text=text,
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode,
+                    **kwargs
+                )
+
+        mock_message = MockMessage(callback)
+        await show_settings_menu(mock_message)
+        logger.info(f"Successfully showed settings menu for user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"Error in settings_menu callback: {e}")
+        await callback.answer("Произошла ошибка при открытии настроек")

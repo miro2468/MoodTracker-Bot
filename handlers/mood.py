@@ -61,9 +61,26 @@ async def callback_mood_record(callback: CallbackQuery, state: FSMContext):
 
         # Создаем message-like объект для совместимости с cmd_mood
         class MockMessage:
+            """Mock message object для совместимости между callback и message handlers"""
             def __init__(self, callback):
                 self.from_user = callback.from_user
                 self.chat = callback.message.chat
+                self.bot = callback.bot
+
+            async def answer(self, text, reply_markup=None, parse_mode=None, **kwargs):
+                """Mock answer method для отправки сообщений"""
+                try:
+                    await self.bot.send_message(
+                        chat_id=self.chat.id,
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=parse_mode,
+                        **kwargs
+                    )
+                    logger.debug(f"MockMessage answer sent to user {self.from_user.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send MockMessage answer: {e}")
+                    raise
 
         mock_message = MockMessage(callback)
         await cmd_mood(mock_message, state)

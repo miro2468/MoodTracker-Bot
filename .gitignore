@@ -363,12 +363,10 @@ all*
 
 # Files containing special characters that might be accidental
 *(*)*
-*[*
-*]*
-*{*
-*}*
-*<*
-*>*
+*[*]*
+*[*]*
+*\{*\}*
+*<*>*
 *|*
 *`*
 *~*
